@@ -1,15 +1,21 @@
 'use client'
 import { useState, useEffect } from "react";
 import { firestore } from '@/firebase';
+import axios from 'axios';
 import Image from "next/image";
-import { Box, Button, Modal, Stack, TextField, Typography, AppBar, Toolbar } from '@mui/material';
+import { Box, Button, Modal, Stack, TextField, Typography, AppBar, Toolbar, Snackbar, Alert, CircularProgress } from '@mui/material';
 import { collection, query, getDocs, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export default function Home() {
   const [inventory, setInventory] = useState([]);
   const [open, setOpen] = useState(false);
   const [itemName, setItemName] = useState('');
-  const [searchQuery, setSearchQuery] = useState(''); // State for search query
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingRecipes, setLoadingRecipes] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [recipes, setRecipes] = useState([]);
 
   const updateInventory = async () => {
     const snapshot = query(collection(firestore, 'inventory'));
@@ -22,7 +28,6 @@ export default function Home() {
       });
     });
     setInventory(inventoryList);
-    console.log(inventoryList);
   };
 
   const removeItem = async (item) => {
@@ -60,6 +65,45 @@ export default function Home() {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
+  const fetchRecipes = async () => {
+    const apiKey = process.env.NEXT_PUBLIC_RECIPE_API_KEY;
+    const ingredients = inventory.map(item => item.name).join(',');
+
+    setLoadingRecipes(true);
+
+    try {
+      if (ingredients.trim() === '') {
+        setSnackbarMessage('No items in your pantry to find recipes.');
+        setSnackbarSeverity('info');
+        setSnackbarOpen(true);
+        return;
+      }
+
+      const response = await axios.get(`https://api.spoonacular.com/recipes/findByIngredients?ingredients=${ingredients}&number=5&apiKey=${apiKey}`);
+
+      if (response.data.length === 0) {
+        setSnackbarMessage('No recipes found with the current ingredients.');
+        setSnackbarSeverity('info');
+      } else {
+        setSnackbarMessage('Recipes successfully loaded!');
+        setSnackbarSeverity('success');
+        setRecipes(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+      setSnackbarMessage('Error fetching recipes.');
+      setSnackbarSeverity('error');
+      setRecipes([]);
+    } finally {
+      setLoadingRecipes(false);
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+
   // Filtered inventory based on search query
   const filteredInventory = inventory.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -75,7 +119,7 @@ export default function Home() {
       alignItems="center"
       gap={2}
       sx={{
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#808080',
         padding: 4,
       }}
     >
@@ -222,6 +266,47 @@ export default function Home() {
             ))}
           </Stack>
         </Box>
+        {loadingRecipes && <CircularProgress />}
+        <Button
+          variant="contained"
+          onClick={fetchRecipes}
+          disabled={loadingRecipes}
+        >
+          {loadingRecipes ? 'Loading Recipes...' : 'Find Recipes'}
+        </Button>
+        
+        <Box
+          width="100%"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          gap={2}
+          mt={4}
+        >
+          <Typography variant="h4">Recipes</Typography>
+          {recipes.map(recipe => (
+            <Box
+              key={recipe.id}
+              width="800px"
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              bgcolor="#fff"
+              padding={2}
+              borderRadius={2}
+              boxShadow={2}
+              mb={2}
+            >
+              <Typography variant="h6">{recipe.title}</Typography>
+              <Image
+                src={recipe.image}
+                alt={recipe.title}
+                width={400}
+                height={300}
+              />
+            </Box>
+          ))}
+        </Box>
       </Box>
       <Box
         width="100%"
@@ -236,6 +321,11 @@ export default function Home() {
           &copy; 2024 Pantry Inventory. All rights reserved.
         </Typography>
       </Box>
+      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
