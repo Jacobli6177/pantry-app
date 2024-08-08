@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { firestore } from '@/firebase';
 import axios from 'axios';
 import Image from "next/image";
-import { Box, Button, Modal, Stack, TextField, Typography, AppBar, Toolbar, Snackbar, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Modal, Stack, TextField, Typography, AppBar, Toolbar, Snackbar, Alert, CircularProgress, List, ListItem, ListItemText } from '@mui/material';
 import { collection, query, getDocs, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export default function Home() {
@@ -266,46 +266,44 @@ export default function Home() {
             ))}
           </Stack>
         </Box>
-        {loadingRecipes && <CircularProgress />}
-        <Button
-          variant="contained"
-          onClick={fetchRecipes}
-          disabled={loadingRecipes}
-        >
-          {loadingRecipes ? 'Loading Recipes...' : 'Find Recipes'}
-        </Button>
-        
-        <Box
-          width="100%"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          gap={2}
-          mt={4}
-        >
-          <Typography variant="h4">Recipes</Typography>
-          {recipes.map(recipe => (
-            <Box
-              key={recipe.id}
-              width="800px"
-              display="flex"
-              flexDirection="column"
-              alignItems="center"
-              bgcolor="#fff"
-              padding={2}
-              borderRadius={2}
-              boxShadow={2}
-              mb={2}
-            >
-              <Typography variant="h6">{recipe.title}</Typography>
-              <Image
-                src={recipe.image}
-                alt={recipe.title}
-                width={400}
-                height={300}
-              />
+        {/* Recipe Suggestions Section */}
+        <Box width="60%" p={2} bgcolor="white" borderRadius={4} boxShadow={2} mt={4} mb={4}>
+          <Typography variant="h4" spacing={2} mb={2} fontWeight={'bold'}>
+            🧾Suggested Recipes
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={fetchRecipes}
+            disabled={loadingRecipes}
+            spacing={2}
+            mb={2}
+          >
+            {loadingRecipes ? 'Loading Recipes...' : 'Get Recipes'}
+          </Button>
+          {loadingRecipes && (
+            <Box display="flex" justifyContent="center" mt={2}>
+              <CircularProgress />
             </Box>
-          ))}
+          )}
+          <List>
+            {recipes.map((recipe) => (
+              <ListItem key={recipe.id} sx={{ mb: 1 }}>
+                <ListItemText
+                  primary={recipe.title}
+                  secondary={`Missing Ingredients: ${recipe.missedIngredientCount}`}
+                />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  href={`https://spoonacular.com/recipes/${recipe.title.replace(/ /g, '-')}-${recipe.id}`}
+                  target="_blank"
+                >
+                  View Recipe
+                </Button>
+              </ListItem>
+            ))}
+          </List>
         </Box>
       </Box>
       <Box
